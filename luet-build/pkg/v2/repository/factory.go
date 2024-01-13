@@ -40,10 +40,6 @@ type WagonFactoryOpts struct {
 	OutputDir   string
 	PackagesDir string
 
-	// Enable creation of legacy tarballs
-	// to avoid broken updates.
-	LegacyMode bool
-
 	// Validate package tarball
 	CheckPackageTarball bool
 	// Add compilertree tarball on bump.
@@ -72,7 +68,6 @@ func NewWagonFactoryOpts() *WagonFactoryOpts {
 		ResetRevision:       false,
 		OutputDir:           "",
 		PackagesDir:         "",
-		LegacyMode:          false,
 		CheckPackageTarball: false,
 		WithCompilerTree:    false,
 		CompressionMode:     compression.Zstandard,
@@ -589,10 +584,6 @@ func (w *WagonFactory) BumpRevision(treePaths []string, opts *WagonFactoryOpts) 
 	err = wIdentity.Write(identifyFilePath)
 	if err != nil {
 		return err
-	}
-
-	if opts.LegacyMode {
-
 	}
 
 	return nil

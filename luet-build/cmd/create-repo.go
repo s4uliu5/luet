@@ -91,7 +91,6 @@ func newCreateRepoCommand(config *cfg.LuetConfig) *cobra.Command {
 			opts.ResetRevision = reset
 			opts.OutputDir = dst
 			opts.PackagesDir = config.Viper.GetString("packages")
-			opts.LegacyMode = true
 			opts.CompressionMode = compression.NewCompression(treetype)
 			opts.CheckPackageTarball = checkPackageTarball
 			opts.WithCompilerTree = withCompilerTree
