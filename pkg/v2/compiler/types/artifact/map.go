@@ -5,11 +5,13 @@ See AUTHORS and LICENSE for the license details and contributors.
 package artifact
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 
 	gentoo "github.com/geaaru/pkgs-checker/pkg/gentoo"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type ArtifactsMap struct {
@@ -42,6 +44,18 @@ func (ap *ArtifactsPack) ToMap() *ArtifactsMap {
 	}
 
 	return ans
+}
+
+func (ap *ArtifactsPack) YAML() ([]byte, error) {
+	return yaml.Marshal(ap)
+}
+
+func (ap *ArtifactsPack) JSON() ([]byte, error) {
+	return json.Marshal(ap)
+}
+
+func (ap *ArtifactsPack) Add(p *PackageArtifact) {
+	ap.Artifacts = append(ap.Artifacts, p)
 }
 
 func (ap *ArtifactsPack) IsPresent(p *PackageArtifact) bool {
