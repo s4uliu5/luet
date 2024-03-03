@@ -12,10 +12,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	fileHelper "github.com/geaaru/luet/pkg/helpers/file"
 	. "github.com/geaaru/luet/pkg/logger"
 	pkg "github.com/geaaru/luet/pkg/package"
+	"github.com/geaaru/pkgs-checker/pkg/gentoo"
 
 	zstd "github.com/klauspost/compress/zstd"
 	"gopkg.in/yaml.v3"
@@ -295,4 +297,61 @@ func (t *TreeIdx) generateIdxDir(dir, base string, opts *GenOpts) (*TreeIdx, err
 	}
 
 	return ans, nil
+}
+
+// Split every TreeIdx with multiple versions in multiple
+// TreeIdx with a single version. In addition, removed duplicated
+// version. This helps sorting and elaboration.
+// The returned array is only with version of the specified
+// package name.
+func FragmentTrees(indexes *[]*TreeIdx, pkgname string, reverse bool) *[]*TreeIdx {
+	tidxs := *indexes
+	ans := []*TreeIdx{}
+
+	versions := make(map[string]bool, 0)
+
+	for i := range tidxs {
+		for k, v := range tidxs[i].Map {
+
+			if k != pkgname {
+				continue
+			}
+
+			for tip := range v {
+
+				if _, present := versions[v[tip].Version]; present {
+					continue
+				}
+				versions[v[tip].Version] = true
+				nt := NewTreeIdx(tidxs[i].TreePath, tidxs[i].Compress)
+				nt.BaseDir = tidxs[i].BaseDir
+				nt.AddPackage(k, v[tip])
+
+				ans = append(ans, nt)
+			}
+		}
+	}
+
+	sort.Slice(ans[:], func(i, j int) bool {
+
+		tpi, _ := ans[i].Map[pkgname]
+		tpj, _ := ans[j].Map[pkgname]
+
+		ti := tpi[0].Version
+		tj := tpj[0].Version
+
+		gpi, _ := gentoo.ParsePackageStr(fmt.Sprintf("%s-%s", pkgname, ti))
+		gpj, _ := gentoo.ParsePackageStr(fmt.Sprintf("%s-%s", pkgname, tj))
+
+		if reverse {
+			c, _ := gpi.GreaterThanOrEqual(gpj)
+			return c
+		} else {
+			c, _ := gpi.LessThanOrEqual(gpj)
+			return c
+		}
+
+	})
+
+	return &ans
 }
