@@ -6,6 +6,7 @@ package pkg
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,7 @@ type PackageThin struct {
 	Name      string         `yaml:"name" json:"name"`
 	Category  string         `yaml:"category" json:"category"`
 	Version   string         `yaml:"version" json:"version"`
+	UseFlags  []string       `json:"use_flags,omitempty" yaml:"use_flags,omitempty"` // Affects YAML field names too.
 	Requires  []*PackageThin `yaml:"requires,omitempty" json:"requires,omitempty"`
 	Conflicts []*PackageThin `yaml:"conflicts,omitempty" json:"conflicts,omitempty"`
 	Provides  []*PackageThin `yaml:"provides,omitempty" json:"provides,omitempty"`
@@ -38,6 +40,7 @@ func NewPackageThin(name, cat, version string,
 		Requires:  requires,
 		Conflicts: conflicts,
 		Provides:  []*PackageThin{},
+		UseFlags:  []string{},
 	}
 }
 
@@ -119,6 +122,22 @@ func (p *PackageThin) AtomMatches(m *PackageThin) bool {
 		return true
 	}
 	return false
+}
+
+func (p *PackageThin) GenerateSha256Hash() string {
+	var psha hash.Hash = sha256.New()
+
+	b, _ := json.Marshal(p)
+
+	psha.Write(b)
+
+	var h []byte = psha.Sum(nil)
+
+	return hex.EncodeToString(h)
+}
+
+func (p *PackageThin) JSON() ([]byte, error) {
+	return json.Marshal(p)
 }
 
 func (p *PackageThin) GenerateHash() string {
