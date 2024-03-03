@@ -52,6 +52,17 @@ func ReadBuildFile(buildFile, definitionFile string,
 
 	ans := loadSpec
 
+	ans.SetCategory(defPkg.GetCategory())
+	ans.SetName(defPkg.GetName())
+	ans.SetVersion(defPkg.GetVersion())
+	ans.Labels = defPkg.GetLabels()
+	ans.Annotations = defPkg.GetAnnotations()
+	ans.SetLicense(defPkg.GetLicense())
+	ans.SetDescription(defPkg.GetDescription())
+	ans.Uri = defPkg.GetURI()
+	ans.Hidden = defPkg.IsHidden()
+	ans.UseFlags = defPkg.GetUses()
+
 	// NOTE: merging runtime requires, provides, conflicts only
 	//       if the compiler specs are related to a virtual package
 	if loadSpec.IsVirtual() {
