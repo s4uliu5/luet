@@ -459,7 +459,7 @@ func (m *ArtifactsManager) Upgrade(opts *InstallOpts, targetRootfs string) error
 
 			err = m.InstallPackage(art, r, targetRootfs)
 			if err != nil {
-				Error(fmt.Sprintf(":package:%s # install failer :fire:", msg))
+				Error(fmt.Sprintf(":package:%s # install failed :fire:", msg))
 				errs = append(errs, fmt.Errorf(
 					"%s::%s - error: %s", art.GetPackage().PackageName(),
 					art.GetPackage().Repository,
