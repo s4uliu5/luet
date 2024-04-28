@@ -692,6 +692,7 @@ func (p *DefaultPackage) ToPackageThin() *PackageThin {
 		Requires:  []*PackageThin{},
 		Conflicts: []*PackageThin{},
 		Provides:  []*PackageThin{},
+		UseFlags:  p.UseFlags,
 	}
 
 	if len(p.PackageRequires) > 0 {
