@@ -1,5 +1,5 @@
 /*
-Copyright © 2022-2023 Macaroni OS Linux
+Copyright © 2022-2024 Macaroni OS Linux
 See AUTHORS and LICENSE for the license details and contributors.
 */
 package options
@@ -7,33 +7,24 @@ package options
 import (
 	"runtime"
 
-	"github.com/geaaru/luet/pkg/config"
 	"github.com/geaaru/luet/pkg/v2/compiler/types/compression"
 )
 
 type Compiler struct {
-	PushImageRepository      string
-	PullImageRepository      []string
-	PullFirst, KeepImg, Push bool
-	Concurrency              int
-	CompressionType          compression.Implementation
+	PushImageRepository string                     `json:"push_image_repository,omitempty" yaml:"push_image_repository,omitempty"`
+	PullImageRepository []string                   `json:"pull_image_repository,omitempty" yaml:"push_image_repository,omitempty"`
+	PullFirst           bool                       `json:"pull_first,omitempty" yaml:"pull_first,omitempty"`
+	KeepImg             bool                       `json:"keepimg,omitempty" yaml:"keepimg,omitempty"`
+	Push                bool                       `json:"push,omitempty" yaml:"push,omitempty"`
+	Privileged          bool                       `json:"privileged,omitempty" yaml:"privileged,omitempty"`
+	Concurrency         int                        `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	CompressionType     compression.Implementation `json:"compression_type,omitempty" yaml:"compression_type,omitempty"`
 
-	Wait            bool
-	OnlyDeps        bool
-	NoDeps          bool
-	SolverOptions   config.LuetSolverOptions
-	BuildValuesFile []string
-	BuildValues     []map[string]interface{}
+	PackageTargetOnly bool `json:"package_targetonly,omitempty" yaml:"package_targetonly,omitempty"`
+	Rebuild           bool `json:"rebuild,omitempty" yaml:"rebuild,omitempty"`
 
-	PackageTargetOnly bool
-	Rebuild           bool
-
-	BackendArgs []string
-
-	BackendType string
-
-	// TemplatesFolder. should default to tree/templates
-	TemplatesFolder []string
+	BackendArgs []string `json:"backend_args,omitempty" yaml:"backend_args,omitempty"`
+	BackendType string   `json:"backend_type,omitempty" yaml:"backend_type,omitempty"`
 }
 
 func NewDefaultCompiler() *Compiler {
@@ -44,9 +35,9 @@ func NewDefaultCompiler() *Compiler {
 		CompressionType:     compression.None,
 		KeepImg:             true,
 		Concurrency:         runtime.NumCPU(),
-		OnlyDeps:            false,
-		NoDeps:              false,
-		SolverOptions:       config.LuetSolverOptions{Type: ""},
+		BackendType:         "dockerv3",
+		BackendArgs:         []string{},
+		Rebuild:             false,
 	}
 }
 
@@ -74,20 +65,6 @@ func WithOptions(opt *Compiler) func(cfg *Compiler) error {
 func WithBackendType(r string) func(cfg *Compiler) error {
 	return func(cfg *Compiler) error {
 		cfg.BackendType = r
-		return nil
-	}
-}
-
-func WithTemplateFolder(r []string) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.TemplatesFolder = r
-		return nil
-	}
-}
-
-func WithBuildValues(r []string) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.BuildValuesFile = r
 		return nil
 	}
 }
@@ -137,6 +114,13 @@ func Rebuild(b bool) func(cfg *Compiler) error {
 	}
 }
 
+func Privileged(b bool) func(cfg *Compiler) error {
+	return func(cfg *Compiler) error {
+		cfg.Privileged = b
+		return nil
+	}
+}
+
 func PushImages(b bool) func(cfg *Compiler) error {
 	return func(cfg *Compiler) error {
 		cfg.Push = b
@@ -144,30 +128,9 @@ func PushImages(b bool) func(cfg *Compiler) error {
 	}
 }
 
-func Wait(b bool) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.Wait = b
-		return nil
-	}
-}
-
-func OnlyDeps(b bool) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.OnlyDeps = b
-		return nil
-	}
-}
-
 func OnlyTarget(b bool) func(cfg *Compiler) error {
 	return func(cfg *Compiler) error {
 		cfg.PackageTargetOnly = b
-		return nil
-	}
-}
-
-func NoDeps(b bool) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.NoDeps = b
 		return nil
 	}
 }
@@ -185,13 +148,6 @@ func Concurrency(i int) func(cfg *Compiler) error {
 func WithCompressionType(t compression.Implementation) func(cfg *Compiler) error {
 	return func(cfg *Compiler) error {
 		cfg.CompressionType = t
-		return nil
-	}
-}
-
-func WithSolverOptions(c config.LuetSolverOptions) func(cfg *Compiler) error {
-	return func(cfg *Compiler) error {
-		cfg.SolverOptions = c
 		return nil
 	}
 }
