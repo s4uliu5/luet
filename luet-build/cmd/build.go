@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Macaroni OS Linux
+Copyright © 2022-2024 Macaroni OS Linux
 See AUTHORS and LICENSE for the license details and contributors.
 */
 package cmd
@@ -9,45 +9,19 @@ import (
 	"os"
 	"path/filepath"
 
-	helpers "github.com/geaaru/luet/cmd/helpers"
+	"github.com/geaaru/luet/cmd/util"
 	bhelpers "github.com/geaaru/luet/luet-build/cmd/helpers"
-	"github.com/geaaru/luet/luet-build/pkg/installer"
-	"github.com/geaaru/luet/pkg/compiler"
-	"github.com/geaaru/luet/pkg/compiler/types/artifact"
-	"github.com/geaaru/luet/pkg/compiler/types/compression"
-	"github.com/geaaru/luet/pkg/compiler/types/options"
-	compilerspec "github.com/geaaru/luet/pkg/compiler/types/spec"
+	solver "github.com/geaaru/luet/luet-build/pkg/v2/solver"
 	cfg "github.com/geaaru/luet/pkg/config"
 	. "github.com/geaaru/luet/pkg/logger"
-	pkg "github.com/geaaru/luet/pkg/package"
-	tree "github.com/geaaru/luet/pkg/tree"
+	"github.com/geaaru/luet/pkg/v2/compiler/types/artifact"
+	"github.com/geaaru/luet/pkg/v2/compiler/types/compression"
+	"github.com/geaaru/luet/pkg/v2/compiler/types/options"
 
-	"github.com/ghodss/yaml"
+	"github.com/logrusorgru/aurora"
+	. "github.com/logrusorgru/aurora"
 	"github.com/spf13/cobra"
 )
-
-type PackageResult struct {
-	Name       string   `json:"name"`
-	Category   string   `json:"category"`
-	Version    string   `json:"version"`
-	License    string   `json:"License"`
-	Repository string   `json:"repository"`
-	Target     string   `json:"target"`
-	Hidden     bool     `json:"hidden"`
-	Files      []string `json:"files"`
-}
-
-type Results struct {
-	Packages []PackageResult `json:"packages"`
-}
-
-func (r *Results) AddPackage(p *PackageResult) {
-	r.Packages = append(r.Packages, *p)
-}
-
-func (r PackageResult) String() string {
-	return fmt.Sprintf("%s/%s-%s required for %s", r.Category, r.Name, r.Version, r.Target)
-}
 
 func newBuildCommand(config *cfg.LuetConfig) *cobra.Command {
 
@@ -101,198 +75,131 @@ func newBuildCommand(config *cfg.LuetConfig) *cobra.Command {
 			config.Viper.BindPFlag("general.show_build_output", cmd.Flags().Lookup("live-output"))
 			config.Viper.BindPFlag("backend-args", cmd.Flags().Lookup("backend-args"))
 
+			config.Viper.Unmarshal(&config)
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			var err error
 
 			treePaths := config.Viper.GetStringSlice("tree")
+			templatesDirs, _ := cmd.Flags().GetStringArray("templates-dir")
+			values := bhelpers.ValuesFlags()
+
+			stype, _ := cmd.Flags().GetString("solver-type")
+
 			dst := config.Viper.GetString("destination")
 			concurrency := config.GetGeneral().Concurrency
 			backendType := config.Viper.GetString("backend")
 			privileged := config.Viper.GetBool("privileged")
-			revdeps := config.Viper.GetBool("revdeps")
-			all := config.Viper.GetBool("all")
+			//revdeps := config.Viper.GetBool("revdeps")
+			//all := config.Viper.GetBool("all")
 			compressionType := config.Viper.GetString("compression")
 			imageRepository := config.Viper.GetString("image-repository")
-			values := bhelpers.ValuesFlags()
-			wait := config.Viper.GetBool("wait")
+			//wait := config.Viper.GetBool("wait")
 			push := config.Viper.GetBool("push")
 			pull := config.Viper.GetBool("pull")
 			keepImages := config.Viper.GetBool("keep-images")
-			nodeps := config.Viper.GetBool("nodeps")
-			onlydeps := config.Viper.GetBool("onlydeps")
+			//nodeps := config.Viper.GetBool("nodeps")
+			//onlydeps := config.Viper.GetBool("onlydeps")
 			onlyTarget, _ := cmd.Flags().GetBool("only-target-package")
-			full, _ := cmd.Flags().GetBool("full")
+			//full, _ := cmd.Flags().GetBool("full")
 			rebuild, _ := cmd.Flags().GetBool("rebuild")
-
-			var results Results
 			backendArgs := config.Viper.GetStringSlice("backend-args")
 
 			out, _ := cmd.Flags().GetString("output")
 			if out != "terminal" {
 				config.GetLogging().SetLogLevel("error")
 			}
+
+			InfoC(fmt.Sprintf(":rocket:%s %s",
+				Bold(Blue("Anise Build")), Bold(Blue(util.Version()))))
+
 			pretend, _ := cmd.Flags().GetBool("pretend")
-			fromRepo, _ := cmd.Flags().GetBool("from-repositories")
+			//fromRepo, _ := cmd.Flags().GetBool("from-repositories")
 
-			compilerSpecs := compilerspec.NewLuetCompilationspecs()
-			var db pkg.PackageDatabase
+			buildManager := solver.NewBuildManager(config)
 
-			compilerBackend, err := compiler.NewBackend(backendType)
-			helpers.CheckErr(err)
+			// Create builder opts
+			opts := solver.NewBuildSolverOpts()
 
-			db = pkg.NewInMemoryDatabase(false)
-			defer db.Clean()
-
-			generalRecipe := tree.NewCompilerRecipe(db)
-
-			if fromRepo {
-				if err := installer.LoadBuildTree(generalRecipe, db, config); err != nil {
-					Warning("errors while loading trees from repositories", err.Error())
-				}
+			err = buildManager.PrepareSolver(
+				stype, opts, treePaths,
+				templatesDirs, values)
+			if err != nil {
+				Fatal(err)
 			}
 
-			for _, src := range treePaths {
-				Info("Loading tree", src)
-				helpers.CheckErr(generalRecipe.Load(src))
-			}
+			var candidates *artifact.ArtifactsPack
 
-			Info("Building in", dst)
-
-			opts := bhelpers.SetSolverConfig()
-			pullRepo, _ := cmd.Flags().GetStringArray("pull-repository")
-
-			config.GetGeneral().ShowBuildOutput = config.Viper.GetBool("general.show_build_output")
-
-			Debug("Solver", opts.CompactString())
-
-			luetCompiler := compiler.NewLuetCompiler(compilerBackend,
-				generalRecipe.GetDatabase(),
-				options.NoDeps(nodeps),
-				options.WithBackendType(backendType),
-				options.PushImages(push),
-				options.WithBuildValues(values),
-				options.WithPullRepositories(pullRepo),
-				options.WithPushRepository(imageRepository),
-				options.Rebuild(rebuild),
-				options.WithTemplateFolder(bhelpers.TemplateFolders(fromRepo, treePaths)),
-				options.Wait(wait),
-				options.OnlyTarget(onlyTarget),
-				options.PullFirst(pull),
-				options.KeepImg(keepImages),
-				options.OnlyDeps(onlydeps),
-				options.BackendArgs(backendArgs),
-				options.Concurrency(concurrency),
-				options.WithCompressionType(compression.Implementation(compressionType)),
-			)
-
-			if full {
-				specs, err := luetCompiler.FromDatabase(generalRecipe.GetDatabase(), true, dst)
+			if pretend {
+				candidates, err = buildManager.BuildPretend(args)
 				if err != nil {
-					Fatal(err.Error())
-				}
-				for _, spec := range specs {
-					Info(":package: Selecting ", spec.GetPackage().GetName(), spec.GetPackage().GetVersion())
-
-					compilerSpecs.Add(spec)
-				}
-			} else if !all {
-				for _, a := range args {
-					pack, err := helpers.ParsePackageStr(config, a)
-					if err != nil {
-						Fatal("Invalid package string ", a, ": ", err.Error())
-					}
-
-					spec, err := luetCompiler.FromPackage(pack)
-					if err != nil {
-						Fatal("Error: " + err.Error())
-					}
-
-					spec.SetOutputPath(dst)
-					compilerSpecs.Add(spec)
+					Fatal(err)
 				}
 			} else {
-				w := generalRecipe.GetDatabase().World()
 
-				for _, p := range w {
-					spec, err := luetCompiler.FromPackage(p)
-					if err != nil {
-						Fatal("Error: " + err.Error())
-					}
-					Info(":package: Selecting ", p.GetName(), p.GetVersion())
-					spec.SetOutputPath(dst)
-					compilerSpecs.Add(spec)
+				// Prepare build options
+				buildOpts := options.NewDefaultCompiler()
+				buildOpts.Apply(
+					options.PushImages(push),
+					options.WithPushRepository(imageRepository),
+					options.PullFirst(pull),
+					options.KeepImg(keepImages),
+					options.Privileged(privileged),
+					options.Concurrency(concurrency),
+					options.WithCompressionType(compression.Implementation(compressionType)),
+					options.OnlyTarget(onlyTarget),
+					options.Rebuild(rebuild),
+					options.BackendArgs(backendArgs),
+					options.WithBackendType(backendType),
+				)
+
+				candidates, err = buildManager.Build(args, dst, buildOpts)
+				if err != nil {
+					Fatal(err)
 				}
+
 			}
 
-			var artifact []*artifact.PackageArtifact
-			var errs []error
-			if revdeps {
-				artifact, errs = luetCompiler.CompileWithReverseDeps(privileged, compilerSpecs)
-
-			} else if pretend {
-				toCalculate := []*compilerspec.LuetCompilationSpec{}
-				if full {
-					var err error
-					toCalculate, err = luetCompiler.ComputeMinimumCompilableSet(compilerSpecs.All()...)
-					if err != nil {
-						errs = append(errs, err)
-					}
+			switch out {
+			case "yaml":
+				data, err := candidates.YAML()
+				if err != nil {
+					Fatal(err)
+				}
+				fmt.Println(string(data))
+			case "json":
+				data, err := candidates.JSON()
+				if err != nil {
+					Fatal(err)
+				}
+				fmt.Println(string(data))
+			default:
+				tot := len(candidates.Artifacts)
+				if tot == 0 {
+					Warning(":head_bandage: No packages selected for build!")
 				} else {
-					toCalculate = compilerSpecs.All()
-				}
+					if pretend {
+						InfoC(fmt.Sprintf(":construction: %s", Bold("Candidates for the build!")))
+					} else {
+						InfoC(fmt.Sprintf(":construction: %s", Bold("Packages built:")))
+					}
+					for i := range candidates.Artifacts {
 
-				for _, sp := range toCalculate {
-					ht := compiler.NewHashTree(generalRecipe.GetDatabase())
-					hashTree, err := ht.Query(luetCompiler, sp)
-					if err != nil {
-						errs = append(errs, err)
-					}
-					for _, p := range hashTree.Dependencies {
-						results.Packages = append(results.Packages,
-							PackageResult{
-								Name:       p.Package.GetName(),
-								Version:    p.Package.GetVersion(),
-								Category:   p.Package.GetCategory(),
-								Repository: "",
-								Hidden:     p.Package.IsHidden(),
-								Target:     sp.GetPackage().HumanReadableString(),
-							})
+						msg := fmt.Sprintf(
+							"[%3d of %3d] %-65s - %-15s",
+							aurora.Bold(aurora.BrightMagenta(i+1)),
+							aurora.Bold(aurora.BrightMagenta(tot)),
+							Bold(candidates.Artifacts[i].GetPackage().PackageName()),
+							Bold(candidates.Artifacts[i].GetPackage().GetVersion()))
+						if pretend {
+							Info(fmt.Sprintf(":package:%s", msg))
+						} else {
+							Info(fmt.Sprintf(":package:%s:check_mark:", msg))
+						}
 					}
 				}
+			}
 
-				y, err := yaml.Marshal(results)
-				if err != nil {
-					fmt.Printf("err: %v\n", err)
-					return
-				}
-				switch out {
-				case "yaml":
-					fmt.Println(string(y))
-				case "json":
-					j2, err := yaml.YAMLToJSON(y)
-					if err != nil {
-						fmt.Printf("err: %v\n", err)
-						return
-					}
-					fmt.Println(string(j2))
-				case "terminal":
-					for _, p := range results.Packages {
-						Info(p.String())
-					}
-				}
-			} else {
-
-				artifact, errs = luetCompiler.CompileParallel(privileged, compilerSpecs)
-			}
-			if len(errs) != 0 {
-				for _, e := range errs {
-					Error("Error: " + e.Error())
-				}
-				Fatal("Bailing out")
-			}
-			for _, a := range artifact {
-				Info("Artifact generated:", a.Path)
-			}
 		},
 	}
 
@@ -303,7 +210,15 @@ func newBuildCommand(config *cfg.LuetConfig) *cobra.Command {
 
 	flags := buildCmd.Flags()
 
-	flags.StringSliceP("tree", "t", []string{path}, "Path of the tree to use.")
+	flags.StringArrayP("tree", "t", []string{path},
+		"Path of the tree to use.")
+	flags.StringArray("templates-dir", []string{filepath.Join(path, "templates")},
+		"Path of the render templates to use.")
+
+	flags.String("solver-type", "", "Solver strategy")
+	flags.Bool("pretend", false, "Just print what packages will be compiled")
+	flags.StringP("output", "o", "terminal", "Output format ( Defaults: terminal, available: json,yaml )")
+
 	flags.String("backend", "docker", "backend used (docker,img)")
 	flags.Bool("privileged", true, "Privileged (Keep permissions)")
 	flags.Bool("revdeps", false, "Build with revdeps")
@@ -317,23 +232,17 @@ func newBuildCommand(config *cfg.LuetConfig) *cobra.Command {
 	flags.String("image-repository", "luet/cache", "Default base image string for generated image")
 	flags.Bool("push", false, "Push images to a hub")
 	flags.Bool("pull", false, "Pull images from a hub")
-	flags.Bool("wait", false, "Don't build all intermediate images, but wait for them until they are available")
 	flags.Bool("keep-images", true, "Keep built docker images in the host")
 	flags.Bool("nodeps", false, "Build only the target packages, skipping deps (it works only if you already built the deps locally, or by using --pull) ")
 	flags.Bool("onlydeps", false, "Build only package dependencies")
 	flags.Bool("only-target-package", false, "Build packages of only the required target. Otherwise builds all the necessary ones not present in the destination")
-	flags.String("solver-type", "", "Solver strategy")
-	flags.Float32("solver-rate", 0.7, "Solver learning rate")
-	flags.Float32("solver-discount", 1.0, "Solver discount rate")
-	flags.Int("solver-attempts", 9000, "Solver maximum attempts")
-	flags.Bool("solver-concurrent", false, "Use concurrent solver (experimental)")
 	flags.Bool("live-output", config.GetGeneral().ShowBuildOutput, "Enable live output of the build phase.")
-	flags.Bool("from-repositories", false, "Consume the user-defined repositories to pull specfiles from")
 	flags.Bool("rebuild", false, "To combine with --pull. Allows to rebuild the target package even if an image is available, against a local values file")
-	flags.Bool("pretend", false, "Just print what packages will be compiled")
 	flags.StringArrayP("pull-repository", "p", []string{}, "A list of repositories to pull the cache from")
+	//flags.Bool("from-repositories", false, "Consume the user-defined repositories to pull specfiles from")
+	/*
+		flags.Bool("wait", false, "Don't build all intermediate images, but wait for them until they are available")
 
-	flags.StringP("output", "o", "terminal", "Output format ( Defaults: terminal, available: json,yaml )")
-
+	*/
 	return buildCmd
 }

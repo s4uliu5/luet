@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Macaroni OS Linux
+Copyright © 2023-2024 Macaroni OS Linux
 See AUTHORS and LICENSE for the license details and contributors.
 */
 package tree
@@ -68,8 +68,48 @@ func (fg *ForestGuard) resolveCategory(name string) (string, error) {
 	return ans, nil
 }
 
-func (fg *ForestGuard) Search(p string) ([]*TreeIdx, error) {
+func (fg *ForestGuard) SearchPackage(p *pkg.DefaultPackage) ([]*TreeIdx, error) {
 	ans := []*TreeIdx{}
+
+	gps, _ := p.ToGentooPackage()
+
+	for _, ti := range fg.Trees {
+
+		versions, present := ti.GetPackageVersions(p.PackageName())
+		if !present {
+			continue
+		}
+
+		tProcessed := NewTreeIdx(ti.TreePath, ti.Compress)
+		tProcessed.BaseDir = ti.BaseDir
+
+		for _, ver := range versions {
+			pkg2check := &pkg.DefaultPackage{
+				Name:     p.Name,
+				Category: p.Category,
+				Version:  ver.Version,
+			}
+
+			gp, _ := pkg2check.ToGentooPackage()
+			admitted, err := gps.Admit(gp)
+			if err != nil {
+				return ans, err
+			}
+
+			if admitted {
+				tProcessed.AddPackage(pkg2check.PackageName(), ver)
+			}
+		}
+
+		if tProcessed.HasPackages() {
+			ans = append(ans, tProcessed)
+		}
+	}
+
+	return ans, nil
+}
+
+func (fg *ForestGuard) ResolveSelector(p string) (*pkg.DefaultPackage, error) {
 	var err error
 	ver := ">=0"
 	cat := ""
@@ -93,7 +133,7 @@ func (fg *ForestGuard) Search(p string) ([]*TreeIdx, error) {
 			//       the name.
 			cat, err = fg.resolveCategory(name)
 			if err != nil {
-				return ans, err
+				return nil, err
 			}
 		}
 
@@ -102,7 +142,7 @@ func (fg *ForestGuard) Search(p string) ([]*TreeIdx, error) {
 
 		gp, err := _gentoo.ParsePackageStr(p)
 		if err != nil {
-			return ans, err
+			return nil, err
 		}
 
 		if gp.Version == "" {
@@ -115,47 +155,23 @@ func (fg *ForestGuard) Search(p string) ([]*TreeIdx, error) {
 		name = gp.Name
 	}
 
-	pkg2search := &pkg.DefaultPackage{
+	ans := &pkg.DefaultPackage{
 		Name:     name,
 		Category: cat,
 		Version:  ver,
 		Uri:      make([]string, 0),
 	}
 
-	gps, _ := pkg2search.ToGentooPackage()
+	return ans, nil
+}
 
-	for _, ti := range fg.Trees {
+func (fg *ForestGuard) Search(p string) ([]*TreeIdx, error) {
+	ans := []*TreeIdx{}
 
-		versions, present := ti.GetPackageVersions(pkg2search.PackageName())
-		if !present {
-			continue
-		}
-
-		tProcessed := NewTreeIdx(ti.TreePath, ti.Compress)
-		tProcessed.BaseDir = ti.BaseDir
-
-		for _, ver := range versions {
-			pkg2check := &pkg.DefaultPackage{
-				Name:     name,
-				Category: cat,
-				Version:  ver.Version,
-			}
-
-			gp, _ := pkg2check.ToGentooPackage()
-			admitted, err := gps.Admit(gp)
-			if err != nil {
-				return ans, err
-			}
-
-			if admitted {
-				tProcessed.AddPackage(pkg2check.PackageName(), ver)
-			}
-		}
-
-		if tProcessed.HasPackages() {
-			ans = append(ans, tProcessed)
-		}
+	pkg2search, err := fg.ResolveSelector(p)
+	if err != nil {
+		return ans, err
 	}
 
-	return ans, nil
+	return fg.SearchPackage(pkg2search)
 }
