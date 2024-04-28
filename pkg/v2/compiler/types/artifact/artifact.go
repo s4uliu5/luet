@@ -22,14 +22,13 @@ import (
 	"sync"
 
 	backend "github.com/geaaru/luet/pkg/compiler/backend"
-	compilerspec "github.com/geaaru/luet/pkg/compiler/types/spec"
 	. "github.com/geaaru/luet/pkg/config"
 	"github.com/geaaru/luet/pkg/helpers"
 	fileHelper "github.com/geaaru/luet/pkg/helpers/file"
 	. "github.com/geaaru/luet/pkg/logger"
 	pkg "github.com/geaaru/luet/pkg/package"
-	"github.com/geaaru/luet/pkg/solver"
 	compression "github.com/geaaru/luet/pkg/v2/compiler/types/compression"
+	compilerspec "github.com/geaaru/luet/pkg/v2/compiler/types/specs"
 
 	tarf "github.com/geaaru/tar-formers/pkg/executor"
 	tarf_specs "github.com/geaaru/tar-formers/pkg/specs"
@@ -39,27 +38,95 @@ import (
 	yaml "gopkg.in/yaml.v3"
 )
 
-//	When compiling, we write also a fingerprint.metadata.yaml file with PackageArtifact. In this way we can have another command to create the repository
-//
-// which will consist in just of an repository.yaml which is just the repository structure with the list of package artifact.
-// In this way a generic client can fetch the packages and, after unpacking the tree, performing queries to install packages.
+// When compiling, we write also a fingerprint.metadata.yaml file with PackageArtifact.
+// In this way we can have another command to create the repository
+// which will consist in just of an repository.yaml which is just the repository
+// structure with the list of package artifact.
+// In this way a generic client can fetch the packages and, after unpacking the tree,
+// performing queries to install packages.
 type PackageArtifact struct {
 	Path      string `json:"path" yaml:"path"`
 	CachePath string `json:"cache_path,omitempty" yaml:"cache_path,omitempty"`
 
-	Dependencies      []*PackageArtifact                `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
-	CompileSpec       *compilerspec.LuetCompilationSpec `json:"compilespec,omitempty" yaml:"compilespec,omitempty"`
-	Checksums         Checksums                         `json:"checksums" yaml:"checksums"`
-	SourceAssertion   solver.PackagesAssertions         `json:"-" yaml:"-"`
-	CompressionType   compression.Implementation        `json:"compressiontype" yaml:"compressiontype"`
-	Files             []string                          `json:"files" yaml:"files"`
-	PackageCacheImage string                            `json:"package_cacheimage,omitempty" yaml:"package_cacheimage,omitempty"`
-	Runtime           *pkg.DefaultPackage               `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+	Dependencies      []*PackageArtifact            `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	CompileSpec       *compilerspec.CompilationSpec `json:"compilespec,omitempty" yaml:"compilespec,omitempty"`
+	Checksums         Checksums                     `json:"checksums" yaml:"checksums"`
+	CompressionType   compression.Implementation    `json:"compressiontype" yaml:"compressiontype"`
+	Files             []string                      `json:"files" yaml:"files"`
+	PackageCacheImage string                        `json:"package_cacheimage,omitempty" yaml:"package_cacheimage,omitempty"`
+	Runtime           *pkg.DefaultPackage           `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+
+	BuildImageHash string `json:"hash_buildimage,omitempty" yaml:"hash_buildimage,omitempty"`
+	FinalImageHash string `json:"hash_finalimage,omitempty" yaml:"hash_finalimage,omitempty"`
 }
+
+func (p *PackageArtifact) SetBuildImageHash(h string) { p.BuildImageHash = h }
+func (p *PackageArtifact) GetBuildImageHash() string  { return p.BuildImageHash }
+func (p *PackageArtifact) SetFinalImageHash(h string) { p.FinalImageHash = h }
+func (p *PackageArtifact) GetFinalImageHash() string  { return p.FinalImageHash }
 
 func (p *PackageArtifact) ShallowCopy() *PackageArtifact {
 	copy := *p
 	return &copy
+}
+
+func (p *PackageArtifact) ToPackageThin(withDeps bool,
+	solution *ArtifactsMap) (*pkg.PackageThin, error) {
+	// In order to calculate the sha256 used for the images
+	// I create a PackageThin based on type of the PackageArtifact
+
+	if p.CompileSpec != nil && p.CompileSpec.IsVirtual() {
+		return p.Runtime.ToPackageThin(), nil
+	}
+
+	pthin := pkg.NewPackageThin(
+		p.GetPackage().GetName(),
+		p.GetPackage().GetCategory(),
+		p.GetPackage().GetVersion(),
+		[]*pkg.PackageThin{}, []*pkg.PackageThin{},
+	)
+
+	pthin.UseFlags = p.GetPackage().GetUses()
+
+	if len(p.Dependencies) > 0 && withDeps {
+
+		for _, dep := range p.Dependencies {
+
+			depthin := pkg.NewPackageThin(
+				dep.GetPackage().GetName(),
+				dep.GetPackage().GetCategory(),
+				dep.GetPackage().GetVersion(),
+				[]*pkg.PackageThin{}, []*pkg.PackageThin{},
+			)
+
+			if solution != nil {
+				if solution.HasKey(dep.GetPackage().PackageName()) {
+					artefacts, _ := solution.GetArtifactsByKey(dep.GetPackage().PackageName())
+					depthin.Version = artefacts[0].GetPackage().GetVersion()
+
+				} else {
+					// Check if the package is provided
+					provides := solution.GetProvides(dep.GetPackage().PackageName())
+					if len(provides) == 0 {
+						return nil, fmt.Errorf("No package for %s found on solution.",
+							dep.GetPackage().PackageName())
+					}
+
+					depthin = pkg.NewPackageThin(
+						provides[0].GetPackage().GetName(),
+						provides[0].GetPackage().GetCategory(),
+						provides[0].GetPackage().GetVersion(),
+						[]*pkg.PackageThin{}, []*pkg.PackageThin{},
+					)
+				}
+			}
+
+			pthin.Requires = append(pthin.Requires, depthin)
+		}
+
+	}
+
+	return pthin, nil
 }
 
 func NewPackageArtifact(path string) *PackageArtifact {
@@ -235,9 +302,6 @@ func (a *PackageArtifact) WriteYaml(dst string) error {
 	//p := a.CompileSpec.GetPackage().GetPath()
 
 	mangle.CompileSpec.GetPackage().SetPath("")
-	for _, ass := range mangle.CompileSpec.GetSourceAssertion() {
-		ass.Package.SetPath("")
-	}
 
 	data, err = yaml.Marshal(mangle)
 	if err != nil {
