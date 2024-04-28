@@ -122,6 +122,13 @@ func (cs *CompilationSpec) GetRetrieve() []string {
 	return cs.Retrieve
 }
 
+func (cs *CompilationSpec) HasFilters() bool {
+	if len(cs.Includes) > 0 || len(cs.Excludes) > 0 {
+		return true
+	}
+	return false
+}
+
 // IsVirtual returns true if the spec is virtual.
 // A spec is virtual if the package is empty, and it has no image source to unpack from.
 func (cs *CompilationSpec) IsVirtual() bool {
@@ -220,12 +227,6 @@ ENV PACKAGE_CATEGORY=` + cs.Package.GetCategory()
 
 	if len(cs.Retrieve) > 0 {
 		for _, s := range cs.Retrieve {
-			//var file string
-			// if helpers.IsValidUrl(s) {
-			// 	file = s
-			// } else {
-			// 	file = cs.Rel(s)
-			// }
 			spec = spec + `
 ADD ` + s + ` /luetbuild/`
 		}
