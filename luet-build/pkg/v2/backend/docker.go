@@ -537,15 +537,15 @@ func (d *Dockerv3) ExportImage(art *artifact.PackageArtifact,
 		return fmt.Errorf("error on start docker cp command: %s", err.Error())
 	}
 
+	err = tarformers.RunTask(spec, extractdir)
+	if err != nil {
+		return fmt.Errorf("failed process container tarball: %s", err.Error())
+	}
+
 	err = exportCmd.Wait()
 	if err != nil {
 		return fmt.Errorf("failed wait command for image %s: %s",
 			remotetaggedImage, err.Error())
-	}
-
-	err = tarformers.RunTask(spec, extractdir)
-	if err != nil {
-		return fmt.Errorf("failed process container tarball: %s", err.Error())
 	}
 
 	if exportCmd.ProcessState.ExitCode() != 0 {
@@ -576,6 +576,19 @@ func (d *Dockerv3) GeneratePackage(art *artifact.PackageArtifact,
 	err = d.ExportImage(art, opts, pkgExtractDir)
 	if err != nil {
 		return err
+	}
+
+	// Create metadata of the package: file list, checksums, sizes, etc.
+
+	if art.CompileSpec.GetPackageDir() != "" {
+		Info(":tophat: Packing from output dir", art.CompileSpec.GetPackageDir())
+	}
+
+	art.Path = filepath.Join(builddir, art.GetPackage().GetFingerPrint()+".package.tar")
+	art.CompressionType = opts.CompressionType
+
+	if err := art.Compress(pkgExtractDir, d.Config.GetGeneral().Concurrency); err != nil {
+		return fmt.Errorf("error met while creating package archive: %s", err.Error())
 	}
 
 	return nil
