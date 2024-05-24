@@ -367,9 +367,9 @@ func (d *Dockerv3) createTarFormers() *tarf.TarFormers {
 	defer mutex.Unlock()
 
 	// Create config
-	c := tarf_specs.NewConfig(cfg.LuetCfg.Viper)
-	c.GetGeneral().Debug = cfg.LuetCfg.GetGeneral().Debug
-	c.GetLogging().Level = cfg.LuetCfg.GetLogging().Level
+	c := tarf_specs.NewConfig(d.Config.Viper)
+	c.GetGeneral().Debug = d.Config.GetGeneral().Debug
+	c.GetLogging().Level = d.Config.GetLogging().Level
 
 	ans := tarf.NewTarFormers(c)
 
@@ -510,7 +510,7 @@ func (d *Dockerv3) ExportImage(art *artifact.PackageArtifact,
 	spec.MapEntities = false
 	spec.SameChtimes = false
 	// In general this must be always set a true.
-	spec.SameOwner = cfg.LuetCfg.GetGeneral().SameOwner
+	spec.SameOwner = d.Config.GetGeneral().SameOwner
 	spec.BrokenLinksFatal = true
 	spec.RenamePath = []tarf_specs.RenameRule{
 		tarf_specs.RenameRule{
@@ -519,7 +519,7 @@ func (d *Dockerv3) ExportImage(art *artifact.PackageArtifact,
 		},
 	}
 
-	buffered := !cfg.LuetCfg.GetGeneral().ShowBuildOutput
+	buffered := !d.Config.GetGeneral().ShowBuildOutput
 	writer := NewBackendWriter(buffered)
 
 	outReader, err := exportCmd.StdoutPipe()
