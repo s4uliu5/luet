@@ -226,7 +226,7 @@ func (s *Solver) Upgrade() (*artifact.ArtifactsPack, *artifact.ArtifactsPack, *a
 				if acandidate.GetPackage().HasProvides() {
 					for _, prov := range acandidate.GetPackage().GetProvides() {
 						if pr, present := s.systemMap.Packages[prov.PackageName()]; present {
-							Debug(fmt.Sprintf("[%s] provides and replace the existing %s.",
+							Debug(fmt.Sprintf("[%s] new package provides and replace the existing %s.",
 								acandidate.GetPackage().PackageName(),
 								pr[0].HumanReadableString()))
 
