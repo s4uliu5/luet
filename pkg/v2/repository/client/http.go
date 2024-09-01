@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/geaaru/luet/pkg/config"
@@ -67,6 +68,12 @@ func NewGrabClient() *grab.Client {
 }
 
 func (c *HttpClient) PrepareReq(dst, url string) (*grab.Request, error) {
+
+	// TODO: Workaround for CDN77 object-store resource
+	//       Need a better solution.
+	if config.LuetCfg.GetGeneral().ClientEncodeURL {
+		url = strings.ReplaceAll(url, "+", "%2B")
+	}
 
 	req, err := grab.NewRequest(dst, url)
 	if err != nil {

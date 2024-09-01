@@ -63,8 +63,9 @@ type LuetGeneralConfig struct {
 	SpinnerCharset  int  `yaml:"spinner_charset,omitempty" json:"spinner_charset,omitempty" mapstructure:"spinner_charset"`
 	FatalWarns      bool `yaml:"fatal_warnings,omitempty" json:"fatal_warnings,omitempty" mapstructure:"fatal_warnings"`
 
-	ClientTimeout    int `yaml:"client_timeout,omitempty" json:"client_timeout,omitempty" mapstructure:"client_timeout,omitempty"`
-	ClientMultiFetch int `yaml:"client_multifetch,omitempty" json:"client_multifetch,omitempty" mapstructure:"client_multifetch,omitempty"`
+	ClientTimeout    int  `yaml:"client_timeout,omitempty" json:"client_timeout,omitempty" mapstructure:"client_timeout,omitempty"`
+	ClientMultiFetch int  `yaml:"client_multifetch,omitempty" json:"client_multifetch,omitempty" mapstructure:"client_multifetch,omitempty"`
+	ClientEncodeURL  bool `yaml:"client_encodeurl,omitempty" json:"client_encodeurl,omitempty" mapstructure:"client_encodeurl,omitempty"`
 
 	OverwriteDirPerms bool `yaml:"overwrite_dir_perms,omitempty" json:"overwrite_dir_perms,omitempty" mapstructure:"overwrite_dir_perms,omitempty"`
 }
@@ -321,6 +322,7 @@ func GenDefault(viper *v.Viper) {
 	viper.SetDefault("general.overwrite_dir_perms", false)
 	viper.SetDefault("general.client_timeout", 3600)
 	viper.SetDefault("general.client_multifetch", 2)
+	viper.SetDefault("general.client_encodeurl", true)
 
 	u, err := user.Current()
 	// os/user doesn't work in from scratch environments
