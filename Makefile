@@ -53,10 +53,10 @@ clean:
 deps:
 	go env
 	# Installing dependencies...
-	GO111MODULE=off go get golang.org/x/lint/golint
+	GO111MODULE=on go install -mod=mod golang.org/x/lint/golint
 	#GO111MODULE=off go get github.com/mitchellh/gox
 	GO111MODULE=on go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-	GO111MODULE=off go get github.com/onsi/gomega/...
+	go get github.com/onsi/gomega/...
 	ginkgo version
 
 .PHONY: build
@@ -96,7 +96,7 @@ test-docker:
 				bash -c "make test"
 
 multiarch-build:
-	GOVERSION=$(GOLANG_VERSION) goreleaser build --snapshot --rm-dist
+	GOVERSION=$(GOLANG_VERSION) goreleaser build --snapshot --skip=validate --clean
 
 multiarch-build-small:
 	@$(MAKE) multiarch-build
