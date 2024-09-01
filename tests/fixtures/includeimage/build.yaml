@@ -13,5 +13,5 @@ unpack: true
 includes:
 - marvin
 - ^/var$
-- ^\/var\/lib$
-- ^\/var\/lib\/udhcpd$
+- ^/usr/share$
+- ^/usr/share/udhcpc$
