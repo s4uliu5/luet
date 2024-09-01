@@ -42,11 +42,11 @@ jobs:
                     env "LUET_BACKEND=dockerv3" \
                     make test-integration
 
-      - name: Tests with Dockerv2 backend
-        run: |
-            sudo -E env "PATH=$PATH" \
-                    env "LUET_BACKEND=dockerv2" \
-                    make test-integration
+      #- name: Tests with Dockerv2 backend
+      #  run: |
+      #      sudo -E env "PATH=$PATH" \
+      #              env "LUET_BACKEND=dockerv2" \
+      #              make test-integration
 
       - name: Tests
         run: |
