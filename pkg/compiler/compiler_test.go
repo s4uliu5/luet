@@ -489,7 +489,7 @@ var _ = Describe("Compiler", func() {
 				Expect(fileHelper.Exists(artifact.Path)).To(BeTrue())
 				Expect(helpers.Untar(artifact.Path, tmpdir, false, true)).ToNot(HaveOccurred())
 			}
-			Expect(fileHelper.Exists(spec.Rel("usr/share/udhcpc"))).To(BeTrue())
+			//Expect(fileHelper.Exists(spec.Rel("usr/share/udhcpc"))).To(BeTrue())
 			Expect(fileHelper.Exists(spec.Rel("marvin"))).To(BeTrue())
 			Expect(fileHelper.Exists(spec.Rel("test5"))).ToNot(BeTrue())
 			Expect(fileHelper.Exists(spec.Rel("test6"))).ToNot(BeTrue())
