@@ -31,7 +31,7 @@ includes:
 - /etc/shells.*
 - /etc/ssl.*
 - /etc/sysctl.*
-- /etc/udhcpd.*
+- /etc/udhcpc.*
 - /home$|/home/.*
 - /lib$|/lib.*
 - /media$|/media/.*
