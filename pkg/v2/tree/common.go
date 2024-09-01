@@ -252,7 +252,8 @@ func (t *TreeIdx) generateIdxDir(dir, base string, opts *GenOpts) (*TreeIdx, err
 
 			dp, err := ReadDefinitionFile(f)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Error on parse file %s: %s",
+					f, err.Error())
 			}
 
 			relf, err := filepath.Rel(base, f)
@@ -269,7 +270,8 @@ func (t *TreeIdx) generateIdxDir(dir, base string, opts *GenOpts) (*TreeIdx, err
 
 			c, err := ReadCollectionFile(f)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Error on parse file %s: %s",
+					f, err.Error())
 			}
 
 			relf, _ := filepath.Rel(base, f)
