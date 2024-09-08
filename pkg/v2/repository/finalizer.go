@@ -53,7 +53,9 @@ func (f *LuetFinalizer) runCommand(cmd string, args, envs []string, script, targ
 		}
 		Info(string(stdoutStderr))
 	} else {
-		b := box.NewBox(cmd, toRun, []string{}, envs, targetRootfs, false, true, true)
+		b := box.NewBox(cmd, toRun, []string{}, envs, targetRootfs,
+			false, true, true, LuetCfg,
+		)
 		err := b.Run()
 		if err != nil {
 			return errors.Wrap(err, "Failed running command: ")

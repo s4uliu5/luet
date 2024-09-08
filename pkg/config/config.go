@@ -70,6 +70,12 @@ type LuetGeneralConfig struct {
 	OverwriteDirPerms bool `yaml:"overwrite_dir_perms,omitempty" json:"overwrite_dir_perms,omitempty" mapstructure:"overwrite_dir_perms,omitempty"`
 }
 
+type LuetBoxConfig struct {
+	// Box Backend (possible values: pivot, fchroot)
+	Backend     string       `yaml:"backend,omitempty" json:"backend,omitempty" mapstructure:"backend,omitempty"`
+	FchrootOpts *FchrootOpts `yaml:"fchroot_opts,omitempty" json:"fchroot_opts,omitempty" mapstructure:"fchroot_opts,omitempty"`
+}
+
 type LuetSolverOptions struct {
 	Type           string  `yaml:"type,omitempty" json:"type,omitempty" mapstructure:"type"`
 	LearnRate      float32 `yaml:"rate,omitempty" json:"rate,omitempty" mapstructure:"rate"`
@@ -242,6 +248,7 @@ type LuetConfig struct {
 	System   LuetSystemConfig   `yaml:"system" mapstructure:"system"`
 	Solver   LuetSolverOptions  `yaml:"solver,omitempty" mapstructure:"solver"`
 	TarFlows LuetTarflowsConfig `yaml:"tar_flows,omitempty" mapstructure:"tar_flows,omitempty"`
+	Box      LuetBoxConfig      `yaml:"box,omitempty" mapstructure:"box,omitempty"`
 
 	RepositoriesConfDir  []string         `yaml:"repos_confdir,omitempty" mapstructure:"repos_confdir"`
 	ConfigProtectConfDir []string         `yaml:"config_protect_confdir,omitempty" mapstructure:"config_protect_confdir"`
@@ -445,6 +452,10 @@ func (c *LuetConfig) GetTarFlows() *LuetTarflowsConfig {
 
 func (c *LuetConfig) GetSolverOptions() *LuetSolverOptions {
 	return &c.Solver
+}
+
+func (c *LuetConfig) GetBox() *LuetBoxConfig {
+	return &c.Box
 }
 
 func (c *LuetConfig) YAML() ([]byte, error) {

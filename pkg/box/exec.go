@@ -23,6 +23,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/geaaru/luet/pkg/config"
 	fileHelper "github.com/geaaru/luet/pkg/helpers/file"
 
 	"github.com/pkg/errors"
@@ -43,16 +44,23 @@ type DefaultBox struct {
 	Stdin, Stdout, Stderr bool
 }
 
-func NewBox(cmd string, args, hostmounts, env []string, rootfs string, stdin, stdout, stderr bool) Box {
-	return &DefaultBox{
-		Stdin:      stdin,
-		Stdout:     stdout,
-		Stderr:     stderr,
-		Cmd:        cmd,
-		Args:       args,
-		Root:       rootfs,
-		HostMounts: hostmounts,
-		Env:        env,
+func NewBox(cmd string, args, hostmounts, env []string,
+	rootfs string, stdin, stdout, stderr bool,
+	cfg *config.LuetConfig) Box {
+	if cfg.GetBox().Backend == "fchroot" {
+		return NewFchrootBox(cmd, args, hostmounts, env,
+			rootfs, stdin, stdout, stderr, cfg)
+	} else {
+		return &DefaultBox{
+			Stdin:      stdin,
+			Stdout:     stdout,
+			Stderr:     stderr,
+			Cmd:        cmd,
+			Args:       args,
+			Root:       rootfs,
+			HostMounts: hostmounts,
+			Env:        env,
+		}
 	}
 }
 
