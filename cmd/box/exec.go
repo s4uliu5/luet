@@ -55,7 +55,8 @@ func NewBoxExecCommand(cfg *config.LuetConfig) *cobra.Command {
 			}
 			Info("Executing", args, "in", rootfs)
 
-			b := box.NewBox(entrypoint, args, mounts, envs, rootfs, stdin, stdout, stderr)
+			b := box.NewBox(entrypoint, args, mounts, envs, rootfs,
+				stdin, stdout, stderr, cfg)
 			err := b.Run()
 			if err != nil {
 				Fatal(err)
