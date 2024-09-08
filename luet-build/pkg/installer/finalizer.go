@@ -21,10 +21,10 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/ghodss/yaml"
 	box "github.com/geaaru/luet/pkg/box"
 	. "github.com/geaaru/luet/pkg/config"
 	. "github.com/geaaru/luet/pkg/logger"
+	"github.com/ghodss/yaml"
 
 	"github.com/pkg/errors"
 )
@@ -67,7 +67,8 @@ func (f *LuetFinalizer) RunInstall(s *System) error {
 			}
 			Info(string(stdoutStderr))
 		} else {
-			b := box.NewBox(cmd, toRun, []string{}, envs, s.Target, false, true, true)
+			b := box.NewBox(cmd, toRun, []string{}, envs, s.Target,
+				false, true, true, LuetCfg)
 			err := b.Run()
 			if err != nil {
 				return errors.Wrap(err, "Failed running command: ")
