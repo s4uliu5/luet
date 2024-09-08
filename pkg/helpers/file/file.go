@@ -319,3 +319,26 @@ func Sha256Sum(path string) (string, error) {
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
+
+// Try to resolve the abs path of the passed param
+// Return itself if the binary is not present in the
+// default paths (/sbin, /bin, /usr/sbin, /usr/bin)
+func TryResolveBinaryAbsPath(b string) string {
+	ans := b
+	possiblePaths := []string{
+		"/sbin",
+		"/bin",
+		"/usr/sbin",
+		"/usr/bin",
+	}
+
+	for _, s := range possiblePaths {
+		abs := filepath.Join(s, b)
+		if Exists(abs) {
+			ans = filepath.Join(abs)
+			break
+		}
+	}
+
+	return ans
+}
