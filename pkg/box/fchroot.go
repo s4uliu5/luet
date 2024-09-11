@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/geaaru/luet/pkg/config"
@@ -129,6 +130,18 @@ func (f *FchrootBox) Run() error {
 
 	if !fileHelper.Exists(f.Root) {
 		return fmt.Errorf(f.Root + " does not exist")
+	}
+
+	// Fchroot requires the path /proc, /sys and /dev
+	// I create the directories if they are missed.
+	for _, p := range []string{"/proc", "/sys", "/dev"} {
+		dir := filepath.Join(f.Root, p)
+		if !fileHelper.Exists(dir) {
+			err := fileHelper.EnsureDir(dir)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return f.Exec()
