@@ -137,7 +137,7 @@ func (f *FchrootBox) Run() error {
 	for _, p := range []string{"/proc", "/sys", "/dev"} {
 		dir := filepath.Join(f.Root, p)
 		if !fileHelper.Exists(dir) {
-			err := fileHelper.EnsureDir(dir)
+			err := os.MkdirAll(dir, os.ModePerm)
 			if err != nil {
 				return err
 			}
