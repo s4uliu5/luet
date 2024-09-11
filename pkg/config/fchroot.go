@@ -7,10 +7,10 @@ package config
 import "fmt"
 
 type FchrootOpts struct {
-	Verbose bool
-	Debug   bool
-	Cpu     string
-	NoBind  bool
+	Verbose bool   `yaml:"verbose,omitempty" json:"verbose,omitempty" mapstructure:"verbose"`
+	Debug   bool   `yaml:"debug,omitempty" json:"debug,omitempty" mapstructure:"debug"`
+	Cpu     string `yaml:"cpu,omitempty" json:"cpu,omitempty" mapstructure:"cpu"`
+	NoBind  bool   `yaml:"nobind,omitempty" json:"nobind,omitempty" mapstructure:"nobind"`
 }
 
 func (o *FchrootOpts) GetFlags(binds []string) []string {
